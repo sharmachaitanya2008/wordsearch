@@ -1,0 +1,15 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/wordsearch
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:}] [%X{correlationId}]"
+  level:
+    com.example.wordsearch.service.GameService: DEBUG
+
+jwt:
+  access-token-expiration: 1800000   # 30 minutes
+  refresh-token-expiration: 604800000 # 7 days
+  secret: iYEf2AYzgbMqPXxFPb3kQbbm95qSuWNXbMIAxKaI8EV

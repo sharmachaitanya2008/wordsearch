@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 20px;
+        }
+
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 20px;
+            background: #fafafa;
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        input, select {
+            padding: 6px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        button {
+            padding: 6px 10px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        .actions button {
+            margin-right: 4px;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="header-bar">
+    <h2>Admin Dashboard</h2>
+    <div>
+        <button onclick="goToGame()">Game</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="dashboard">
+
+    <!-- USER MANAGEMENT -->
+    <div class="card">
+        <h3>👤 User Management</h3>
+        <h4>Create User</h4>
+        <label for="newUsername"></label><input id="newUsername" placeholder="Username">
+        <label for="newPassword"></label><input id="newPassword" type="password" placeholder="Password">
+        <label for="newRole"></label><select id="newRole">
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
+        </select>
+        <button onclick="createUser()">Create</button>
+
+        <h4>Existing Users</h4>
+        <table>
+            <thead>
+            <tr>
+                <th>Username</th>
+                <th>Roles</th>
+                <th>Locked</th>
+                <th>Attempts</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="userTable"></tbody>
+        </table>
+    </div>
+
+    <!-- WORD MANAGEMENT -->
+    <div class="card">
+        <h3>🧩 Word & Clue Management</h3>
+
+        <h4>Add Word</h4>
+        <label for="wordValue"></label><input id="wordValue" placeholder="Display Word (e.g. SPRING BOOT)">
+        <label for="wordClue"></label><input id="wordClue" placeholder="Clue">
+        <button onclick="addWord()">Add</button>
+
+        <h4>Existing Words</h4>
+        <table>
+            <thead>
+            <tr>
+                <th>Word</th>
+                <th>Clue</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="wordTable"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+    async function loadUsers() {
+
+        const users = await apiRequest("/admin/users");
+
+        const table = document.getElementById("userTable");
+        table.innerHTML = "";
+
+        users.forEach(user => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${user.username}</td>
+                <td>${user.roles.join(", ")}</td>
+                <td>${user.accountLocked}</td>
+                <td>${user.failedLoginAttempts}</td>
+                <td class="actions">
+                    <button onclick="resetPassword('${user.id}')">Reset</button>
+                    <button onclick="unlockUser('${user.id}')">Unlock</button>
+                </td>
+            `;
+
+            table.appendChild(row);
+        });
+    }
+
+    async function createUser() {
+
+        await apiRequest("/admin/users", {
+            method: "POST",
+            body: JSON.stringify({
+                username: newUsername.value,
+                password: newPassword.value,
+                roles: [newRole.value]
+            })
+        });
+
+        newUsername.value = "";
+        newPassword.value = "";
+
+        loadUsers();
+    }
+
+    async function resetPassword(id) {
+
+        const newPass = prompt("Enter new password:");
+
+        if (!newPass) return;
+
+        await apiRequest(`/admin/users/${id}/reset-password`, {
+            method: "PUT",
+            body: JSON.stringify({ newPassword: newPass })
+        });
+
+        loadUsers();
+    }
+
+    async function unlockUser(id) {
+
+        await apiRequest(`/admin/users/${id}/unlock`, {
+            method: "PUT"
+        });
+
+        loadUsers();
+    }
+
+    async function loadWords() {
+
+        const words = await apiRequest("/admin/words");
+
+        const table = document.getElementById("wordTable");
+        table.innerHTML = "";
+
+        words.forEach(word => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${word.value}</td>
+                <td>${word.clue}</td>
+                <td>
+                    <button onclick="deleteWord('${word.id}')">Delete</button>
+                </td>
+            `;
+
+            table.appendChild(row);
+        });
+    }
+
+    async function addWord() {
+
+        await apiRequest("/admin/words", {
+            method: "POST",
+            body: JSON.stringify({
+                value: wordValue.value,
+                clue: wordClue.value
+            })
+        });
+
+        wordValue.value = "";
+        wordClue.value = "";
+
+        loadWords();
+    }
+
+    async function deleteWord(id) {
+
+        await apiRequest(`/admin/words/${id}`, {
+            method: "DELETE"
+        });
+
+        loadWords();
+    }
+
+    function goToGame() {
+        window.location.href = "game.html";
+    }
+
+    async function logout() {
+        await apiRequest("/auth/logout", { method: "POST" });
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+
+    loadUsers();
+    loadWords();
+
+</script>
+
+</body>
+</html>

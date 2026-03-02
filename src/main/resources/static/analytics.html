@@ -1,0 +1,24 @@
+<h2>Admin Dashboard</h2>
+
+<div id="analytics"></div>
+
+<script src="app.js"></script>
+<script>
+    async function loadAnalytics() {
+
+        const data = await apiRequest("/admin/analytics");
+
+        analytics.innerHTML = `
+            <p>Total Users: ${data.totalUsers}</p>
+            <p>Active Users: ${data.activeUsersLast7Days}</p>
+            <p>Locked Accounts: ${data.lockedAccounts}</p>
+            <p>Total Games: ${data.totalGames}</p>
+            <p>Completed Games: ${data.completedGames}</p>
+            <p>Avg Words: ${data.averageWordsFound.toFixed(2)}</p>
+            <p>Avg Time: ${data.averageCompletionTimeSeconds.toFixed(2)} sec</p>
+            <p>Accuracy: ${(data.averageAccuracy * 100).toFixed(2)}%</p>
+        `;
+    }
+
+    loadAnalytics();
+</script>

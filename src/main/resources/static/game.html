@@ -1,0 +1,298 @@
+<meta charset="UTF-8">
+<link rel="stylesheet" href="style.css">
+<h2>Word Search</h2>
+<div style="text-align:right;">
+    <button onclick="logout()">Logout</button>
+</div>
+<div id="timer"></div>
+<div class="game-layout">
+    <div class="grid" id="grid"></div>
+    <div id="words"></div>
+</div>
+<script src="app.js"></script>
+<script>
+    let sessionId;
+    let startTime;
+    let direction = null;
+
+    async function loadGame() {
+
+        const response = await apiRequest("/game/start", {
+            method: "POST"
+        });
+
+        sessionId = response.sessionId;
+        puzzleMap = response.puzzleMap;
+        currentFoundWords = response.foundWords;
+
+        renderGrid(response.grid);
+        restoreFoundWords();
+        renderWords(puzzleMap, currentFoundWords);
+        // startTimer();
+    }
+    function renderWords(puzzleMap, foundWords = []) {
+
+    const container = document.getElementById("words");
+    container.innerHTML = "<h3>Clues</h3>";
+
+    Object.entries(puzzleMap).forEach(([word, clue]) => {
+
+        const el = document.createElement("div");
+        el.innerText = clue;
+
+        if (foundWords.includes(word)) {
+            el.style.textDecoration = "line-through";
+            el.style.color = "green";
+        }
+
+        container.appendChild(el);
+    });
+}
+
+    function renderGrid(grid) {
+        const container = document.getElementById("grid");
+        container.innerHTML = "";
+
+        // 🔥 Set columns dynamically
+        container.style.gridTemplateColumns = `repeat(${grid[0].length}, 50px)`;
+
+        grid.forEach((row, r) => {
+            row.forEach((letter, c) => {
+                const cell = document.createElement("div");
+                cell.className = "cell";
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+                cell.innerText = letter;
+
+                cell.addEventListener("mousedown", startSelection);
+                cell.addEventListener("mouseenter", extendSelection);
+
+                container.appendChild(cell);
+            });
+        });
+    }
+
+    let selected = [];
+    let selecting = false;
+
+    function startSelection(e) {
+        e.preventDefault();
+        selecting = true;
+        selected = [e.target];
+        direction = null;
+        e.target.classList.add("selected");
+    }
+
+    function extendSelection(e) {
+        if (!selecting) return;
+
+        const current = e.target;
+
+        const r2 = +current.dataset.row;
+        const c2 = +current.dataset.col;
+
+        // Determine direction on second cell
+        if (selected.length === 1) {
+
+            // Determine direction from first cell
+            const start = selected[0];
+
+            const sr = +start.dataset.row;
+            const sc = +start.dataset.col;
+
+            const dr0 = r2 - sr;
+            const dc0 = c2 - sc;
+
+            // Normalize to -1, 0, 1
+            const stepR = Math.sign(dr0);
+            const stepC = Math.sign(dc0);
+
+            // Must be straight or diagonal AND adjacent
+            if (
+                !(Math.abs(dr0) <= 1 && Math.abs(dc0) <= 1) ||
+                (stepR === 0 && stepC === 0) ||
+                !(stepR === 0 || stepC === 0 || Math.abs(stepR) === Math.abs(stepC))
+            ) return;
+
+            direction = { stepR, stepC };
+
+        } else {
+
+            const last = selected[selected.length - 1];
+            const lr = +last.dataset.row;
+            const lc = +last.dataset.col;
+
+            const drStep = r2 - lr;
+            const dcStep = c2 - lc;
+
+            // Must move exactly 1 step in locked direction
+            if (
+                drStep !== direction.stepR ||
+                dcStep !== direction.stepC
+            ) return;
+        }
+
+        selected.push(current);
+        current.classList.add("selected");
+    }
+
+    document.addEventListener("mouseup", async () => {
+
+        if (!selecting) return;
+        selecting = false;
+
+        const coordinates = selected.map(c => ({
+            row: Number.parseInt(c.dataset.row),
+            col: Number.parseInt(c.dataset.col)
+        }));
+
+        const result = await apiRequest(
+            `/game/${sessionId}/word`,
+            {
+                method: "POST",
+                body: JSON.stringify({ coordinates })
+            }
+        );
+
+        if (result.valid) {
+
+            // Permanently highlight
+            selected.forEach(c => {
+                c.classList.remove("selected");
+                c.classList.add("found");
+            });
+
+            currentFoundWords = result.foundWords;
+            puzzleWords = result.puzzleMap;
+
+            renderWords(puzzleMap, currentFoundWords);
+            handleGameCompletion(result);
+
+        } else {
+            // Add shake effect
+            selected.forEach(c => {
+                c.classList.add("shake");
+            });
+
+            // Remove shake after animation
+            setTimeout(() => {
+                selected.forEach(c => {
+                    c.classList.remove("shake","selected");
+                });
+            }, 200);
+            // Remove temporary highlight
+            selected.forEach(c => c.classList.remove("selected"));
+        }
+
+        selected = [];
+        globalThis.getSelection().removeAllRanges();
+    });
+
+    function isValidDirection(start, end) {
+
+        const r1 = +start.dataset.row;
+        const c1 = +start.dataset.col;
+        const r2 = +end.dataset.row;
+        const c2 = +end.dataset.col;
+
+        const dr = r2 - r1;
+        const dc = c2 - c1;
+
+        return (
+            dr === 0 ||
+            dc === 0 ||
+            Math.abs(dr) === Math.abs(dc)
+        );
+    }
+
+    function startTimer() {
+        globalThis.timerInterval = setInterval(async () => {
+            const seconds = await apiRequest(`/game/time`);
+            document.getElementById("timer").innerText = "Time: " + seconds + " sec";}, 1000);
+    }
+
+    async function logout() {
+        await apiRequest("/auth/logout", { method: "POST" });
+        localStorage.clear();
+        globalThis.location = "login.html";
+    }
+    function restoreFoundWords() {
+
+        currentFoundWords.forEach(word => {
+
+            // Search grid for matching sequences
+            const cells = document.querySelectorAll(".cell");
+
+            for (let cell of cells) {
+
+                const r = +cell.dataset.row;
+                const c = +cell.dataset.col;
+
+                highlightIfMatches(word, r, c);
+            }
+        });
+    }
+    function highlightIfMatches(word, row, col) {
+
+        const directions = [
+            [0, 1], [1, 0], [1, 1], [-1, 1]
+        ];
+
+        directions.forEach(([dx, dy]) => {
+
+            let cells = [];
+            for (let i = 0; i < word.length; i++) {
+
+                const r = row + dx * i;
+                const c = col + dy * i;
+
+                const cell = document.querySelector(
+                    `.cell[data-row='${r}'][data-col='${c}']`
+                );
+
+                if (!cell || cell.innerText !== word[i]) {
+                    cells = [];
+                    break;
+                }
+
+                cells.push(cell);
+            }
+
+            if (cells.length === word.length) {
+                cells.forEach(c => c.classList.add("found"));
+            }
+        });
+    }
+    function handleGameCompletion(result) {
+
+        if (!result.completed) return;
+
+        clearInterval(globalThis.currentTimerInterval);
+
+        const message = document.createElement("div");
+        message.innerHTML = `
+        <h2>🎉 Game Completed!</h2>
+        <p>Total Attempts: ${result.totalAttempts}</p>
+        <p>Correct Attempts: ${result.correctAttempts}</p>
+        <p>Time: ${result.timeTakenSeconds} sec</p>
+        <p>Redirecting to leaderboard...</p>
+    `;
+
+        message.style.textAlign = "center";
+        message.style.marginTop = "20px";
+
+        document.body.appendChild(message);
+
+        document.querySelectorAll(".cell").forEach(c => {
+            c.style.pointerEvents = "none";
+        });
+
+        setTimeout(() => {
+            globalThis.location.href = "leaderboard.html";
+        }, 2000);
+    }
+    function normalize(value) {
+        return value.replace(/[^A-Za-z]/g, "").toUpperCase();
+    }
+    loadGame();
+</script>
