@@ -13,18 +13,28 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/leaderboard")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class LeaderboardController {
 
     private final LeaderboardService leaderboardService;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<LeaderboardEntry>>> getLeaderboard() {
+    @GetMapping("/leaderboard-timed")
+    public ResponseEntity<ApiResponse<List<LeaderboardEntry>>> getLeaderboardForCompleted() {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         leaderboardService.getTop10(),
+                        MDC.get("correlationId")
+                )
+        );
+    }
+    @GetMapping("/leaderboard")
+    public ResponseEntity<ApiResponse<List<LeaderboardEntry>>> getLeaderboard() {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        leaderboardService.getAll(),
                         MDC.get("correlationId")
                 )
         );

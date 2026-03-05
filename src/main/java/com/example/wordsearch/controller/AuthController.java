@@ -1,14 +1,10 @@
 package com.example.wordsearch.controller;
 
-import com.example.wordsearch.dto.AuthResponse;
-import com.example.wordsearch.dto.ChangePasswordRequest;
-import com.example.wordsearch.dto.LoginRequest;
-import com.example.wordsearch.dto.RefreshRequest;
+import com.example.wordsearch.dto.*;
 import com.example.wordsearch.service.AuthService;
 import com.example.wordsearch.util.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.MDC;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,12 +43,17 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest request) {
 
         authService.changePassword(authentication.getName(), request);
-        return ok(success("Password changed successfully",get("correlationId")));
+        return ok(success("Password changed successfully", get("correlationId")));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout(Authentication authentication) {
         authService.logout(authentication.getName());
-        return ok(success("Logged out successfully",get("correlationId")));
+        return ok(success("Logged out successfully", get("correlationId")));
+    }
+
+    @PostMapping("/guest-login")
+    public ResponseEntity<ApiResponse<AuthResponse>> guestLogin(@RequestBody GuestLoginRequest request) {
+        return ok(success(authService.guestLogin(request.getUsername()), get("correlationId")));
     }
 }

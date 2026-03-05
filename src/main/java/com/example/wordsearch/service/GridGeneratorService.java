@@ -132,10 +132,14 @@ public class GridGeneratorService {
     }
 
     private enum Direction {
-        HORIZONTAL(0, 1),
-        VERTICAL(1, 0),
-        DIAGONAL_DOWN(1, 1),
-        DIAGONAL_UP(-1, 1);
+        HORIZONTAL_L2R(0, 1),
+        HORIZONTAL_R2L(0, -1),
+        VERTICAL_L2R(1, 0),
+        VERTICAL_R2L(-1, 0),
+        DIAGONAL_L2R_DOWN(1, 1),
+        DIAGONAL_L2R_UP(-1, 1),
+        DIAGONAL_R2L_DOWN(-1, -1),
+        DIAGONAL_R2l_UP(1, -1);
 
         final int dx;
         final int dy;

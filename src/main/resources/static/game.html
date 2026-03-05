@@ -1,5 +1,8 @@
 <meta charset="UTF-8">
 <link rel="stylesheet" href="style.css">
+<header class="top-bar">
+    <img src="logo.png" alt="Brand Logo" class="logo">
+</header>
 <h2>Word Search</h2>
 <div style="text-align:right;">
     <button onclick="logout()">Logout</button>
@@ -28,26 +31,30 @@
         renderGrid(response.grid);
         restoreFoundWords();
         renderWords(puzzleMap, currentFoundWords);
+        if (response.completed) {
+            handleGameCompletion(response);
+        }
         // startTimer();
     }
     function renderWords(puzzleMap, foundWords = []) {
 
-    const container = document.getElementById("words");
-    container.innerHTML = "<h3>Clues</h3>";
+        const container = document.getElementById("words");
+        container.innerHTML = "<h3>Clues</h3>";
 
-    Object.entries(puzzleMap).forEach(([word, clue]) => {
+        const list = document.createElement("ul");
+        list.className = "clue-list";
 
-        const el = document.createElement("div");
-        el.innerText = clue;
+        Object.entries(puzzleMap).forEach(([word, clue]) => {
+            const item = document.createElement("li");
+            item.textContent = clue;
 
-        if (foundWords.includes(word)) {
-            el.style.textDecoration = "line-through";
-            el.style.color = "green";
-        }
-
-        container.appendChild(el);
-    });
-}
+            if (foundWords.includes(word)) {
+                item.classList.add("clue-found");
+            }
+            list.appendChild(item);
+        });
+        container.appendChild(list);
+    }
 
     function renderGrid(grid) {
         const container = document.getElementById("grid");
@@ -64,8 +71,8 @@
                 cell.dataset.col = c;
                 cell.innerText = letter;
 
-                cell.addEventListener("mousedown", startSelection);
-                cell.addEventListener("mouseenter", extendSelection);
+                cell.addEventListener("pointerdown", startSelection);
+                cell.addEventListener("pointerenter", extendSelection);
 
                 container.appendChild(cell);
             });
@@ -136,7 +143,7 @@
         current.classList.add("selected");
     }
 
-    document.addEventListener("mouseup", async () => {
+    document.addEventListener("pointerup", async () => {
 
         if (!selecting) return;
         selecting = false;
@@ -173,11 +180,11 @@
             selected.forEach(c => {
                 c.classList.add("shake");
             });
-
+            const shaken = [...selected];
             // Remove shake after animation
             setTimeout(() => {
-                selected.forEach(c => {
-                    c.classList.remove("shake","selected");
+                shaken.forEach(c => {
+                    c.classList.remove("shake", "selected");
                 });
             }, 200);
             // Remove temporary highlight
@@ -208,7 +215,8 @@
     function startTimer() {
         globalThis.timerInterval = setInterval(async () => {
             const seconds = await apiRequest(`/game/time`);
-            document.getElementById("timer").innerText = "Time: " + seconds + " sec";}, 1000);
+            document.getElementById("timer").innerText = "Time: " + seconds + " sec";
+        }, 1000);
     }
 
     async function logout() {
@@ -235,7 +243,7 @@
     function highlightIfMatches(word, row, col) {
 
         const directions = [
-            [0, 1], [1, 0], [1, 1], [-1, 1]
+            [0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [-1, -1], [1, -1]
         ];
 
         directions.forEach(([dx, dy]) => {
@@ -269,27 +277,54 @@
 
         clearInterval(globalThis.currentTimerInterval);
 
-        const message = document.createElement("div");
-        message.innerHTML = `
-        <h2>🎉 Game Completed!</h2>
-        <p>Total Attempts: ${result.totalAttempts}</p>
-        <p>Correct Attempts: ${result.correctAttempts}</p>
-        <p>Time: ${result.timeTakenSeconds} sec</p>
-        <p>Redirecting to leaderboard...</p>
-    `;
-
-        message.style.textAlign = "center";
-        message.style.marginTop = "20px";
-
-        document.body.appendChild(message);
-
+        // Disable grid interaction
         document.querySelectorAll(".cell").forEach(c => {
             c.style.pointerEvents = "none";
         });
 
+        // Hide game layout
+        document.querySelector(".game-layout").style.display = "none";
+
+        // Create congratulations grid
+        const congrats = [
+            ["C", "O", "N", "G", "R", "A", "T", "S"],
+            ["Y", "O", "U", " ", "W", "O", "N", "!"],
+            ["⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "⭐"]
+        ];
+
+        const container = document.createElement("div");
+        container.className = "grid";
+        container.style.gridTemplateColumns = "repeat(8, 50px)";
+        container.style.justifyContent = "center";
+        container.style.marginTop = "30px";
+
+        congrats.forEach(row => {
+            row.forEach(letter => {
+                const cell = document.createElement("div");
+                cell.className = "cell found";
+                cell.innerText = letter;
+                container.appendChild(cell);
+            });
+        });
+
+        const stats = document.createElement("div");
+        stats.style.textAlign = "center";
+        stats.style.marginTop = "20px";
+
+        stats.innerHTML = `
+        <h2>🎉 Game Completed!</h2>
+        <p>Total Attempts: ${result.totalAttempts}</p>
+        <p>Correct Attempts: ${result.correctAttempts}</p>
+<!--        <p>Time: ${result.timeTakenSeconds} sec</p>-->
+        <p>Redirecting to leaderboard...</p>
+    `;
+
+        document.body.appendChild(container);
+        document.body.appendChild(stats);
+
         setTimeout(() => {
             globalThis.location.href = "leaderboard.html";
-        }, 2000);
+        }, 3000);
     }
     function normalize(value) {
         return value.replace(/[^A-Za-z]/g, "").toUpperCase();

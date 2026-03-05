@@ -60,7 +60,8 @@ public class SecurityConfig {
                                 "/leaderboard.html",
                                 "/**/*.html",
                                 "/**/*.css",
-                                "/**/*.js"
+                                "/**/*.js",
+                                "/api/auth/guest-login"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/game/**").authenticated()

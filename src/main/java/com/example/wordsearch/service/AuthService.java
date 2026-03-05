@@ -10,8 +10,10 @@ import com.example.wordsearch.repository.GameSessionRepository;
 import com.example.wordsearch.repository.RefreshTokenRepository;
 import com.example.wordsearch.repository.UserRepository;
 import com.example.wordsearch.security.JwtUtil;
+import com.example.wordsearch.util.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
@@ -22,12 +24,14 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
 
+    public static final String UID_REGEX = "^(?:[a-k]\\d{5}|\\d{5})$";
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -188,5 +192,55 @@ public class AuthService {
                 .build();
 
         refreshTokenRepository.save(token);
+    }
+
+    public AuthResponse guestLogin(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new RuntimeException("Username required");
+        } else if (username.trim().equalsIgnoreCase("admin")) {
+            throw new RuntimeException("Admin login not allowed here");
+        } else if (!username.matches(UID_REGEX)){
+            throw new RuntimeException("Enter a valid UID");
+        }
+
+        username = username.trim().toLowerCase();
+
+        String finalUsername = username;
+        User user = userRepository.findByUsername(username)
+                .orElseGet(() -> createGuestUser(finalUsername));
+
+        if (user.isAccountLocked()) {
+            throw new RuntimeException("Account locked");
+        }
+
+        String accessToken =
+                jwtUtil.generateAccessToken(user.getUsername(), user.getRoles());
+
+        String refreshToken =
+                jwtUtil.generateRefreshToken(user.getUsername());
+
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .requirePasswordChange(false)
+                .build();
+    }
+    private User createGuestUser(String username) {
+
+        User user = User.builder()
+                .username(username)
+                .password("") // unused
+                .roles(Set.of("USER"))
+                .enabled(true)
+                .mustChangePassword(false)
+                .failedLoginAttempts(0)
+                .accountLocked(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return userRepository.save(user);
     }
 }

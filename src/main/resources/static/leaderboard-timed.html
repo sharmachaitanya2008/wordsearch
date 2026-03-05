@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Leaderboard</title>
+    <style>
+        /* ---------- PAGE ---------- */
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Nunito", sans-serif;
+            background: linear-gradient(135deg, #6ec6ff, #b388ff);
+            min-height: 100vh;
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        /* ---------- TITLE ---------- */
+
+        h2 {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            font-size: 30px;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+        /* ---------- CONTAINER ---------- */
+
+        #leaderboard {
+            width: 850px;
+            max-width: 95%;
+            margin: 40px auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 35px;
+            border-radius: 30px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            animation: popIn 0.6s ease;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ---------- TABLE ---------- */
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .leaderboard-table th {
+            background: linear-gradient(135deg, #7e57c2, #9575cd);
+            color: white;
+            padding: 14px;
+            font-weight: bold;
+        }
+
+        .leaderboard-table th:first-child {
+            border-top-left-radius: 15px;
+        }
+
+        .leaderboard-table th:last-child {
+            border-top-right-radius: 15px;
+        }
+
+        .leaderboard-table td {
+            padding: 14px;
+            border-bottom: 1px solid #eee;
+            transition: 0.2s ease;
+        }
+
+        .leaderboard-table tr:hover td {
+            background: rgba(126, 87, 194, 0.08);
+            transform: scale(1.01);
+        }
+
+        /* ---------- MEDALS ---------- */
+
+        .medal {
+            font-size: 22px;
+            display: inline-block;
+            animation: bounce 1.5s infinite ease-in-out;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-4px);
+            }
+        }
+
+        /* ---------- TOP 3 ROW COLORS ---------- */
+
+        .gold {
+            background: rgba(255, 215, 0, 0.15);
+            font-weight: bold;
+        }
+
+        .silver {
+            background: rgba(192, 192, 192, 0.15);
+            font-weight: bold;
+        }
+
+        .bronze {
+            background: rgba(205, 127, 50, 0.15);
+            font-weight: bold;
+        }
+
+        /* Crown styling */
+        .crown {
+            font-size: 20px;
+            margin-left: 6px;
+            animation: crownGlow 2s infinite alternate;
+        }
+
+        @keyframes crownGlow {
+            from {
+                text-shadow: 0 0 5px gold;
+            }
+
+            to {
+                text-shadow: 0 0 15px gold;
+            }
+        }
+
+        /* ---------- EMPTY STATE ---------- */
+
+        #leaderboard p {
+            text-align: center;
+            font-size: 17px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>🏆 Global Leaderboard</h2>
+
+    <div id="leaderboard"></div>
+
+    <script>
+
+        async function loadLeaderboard() {
+
+            const response = await fetch("/api/leaderboard-timed");
+            const result = await response.json();
+
+            const container = document.getElementById("leaderboard");
+
+            if (!result.success || result.data.length === 0) {
+                container.innerHTML = "<p>No completed games yet.</p>";
+                return;
+            }
+
+            let html = `
+            <table class="leaderboard-table">
+                <tr>
+                    <th>Rank</th>
+                    <th>User</th>
+                    <th>Words</th>
+                    <th>Time (sec)</th>
+                </tr>
+        `;
+
+            result.data.forEach((entry, index) => {
+
+                let medal = index + 1;
+                let rowClass = "";
+
+                if (index === 0) {
+                    medal = `<span class="medal">🥇</span>`;
+                    rowClass = "gold";
+                } else if (index === 1) {
+                    medal = `<span class="medal">🥈</span>`;
+                    rowClass = "silver";
+                } else if (index === 2) {
+                    medal = `<span class="medal">🥉</span>`;
+                    rowClass = "bronze";
+                }
+
+                html += `
+                <tr class="${rowClass}">
+                    <td>${medal}</td>
+                    <td>
+                        ${entry.username}
+                        ${index === 0 ? '<span class="crown">👑</span>' : ''}
+                    </td>
+                    <td>${entry.wordsFound}</td>
+                    <td>${entry.timeTakenSeconds}</td>
+                </tr>
+            `;
+            });
+
+            html += "</table>";
+
+            container.innerHTML = html;
+        }
+        loadLeaderboard();
+    </script>
+</body>
+</html>

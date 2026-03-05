@@ -68,4 +68,52 @@ public class LeaderboardService {
 
         return leaderboard;
     }
+    public List<LeaderboardEntry> getAll() {
+
+        Aggregation aggregation = newAggregation(
+
+                project()
+                        .and("userId").as("userId")
+                        .andExpression("size(foundWords)").as("wordsFound")
+                        .and("startTime").as("startTime")
+                        .and("endTime").as("endTime")
+                        .and("completed").as("completed")
+                        .andExpression(
+                                "toLong(divide(subtract(cond(completed, endTime, $$NOW), startTime), 1000))"
+                        ).as("timeTakenSeconds"),
+
+                sort(Sort.by(
+                        Sort.Order.desc("wordsFound"),
+                        Sort.Order.asc("timeTakenSeconds")
+                ))
+        );
+
+        var results =
+                mongoTemplate.aggregate(
+                        aggregation,
+                        "game_sessions",
+                        Document.class
+                );
+
+        List<LeaderboardEntry> leaderboard = new ArrayList<>();
+
+        for (Document doc : results.getMappedResults()) {
+
+            String userId = doc.getString("userId");
+
+            User user = userRepository.findById(userId).orElse(null);
+
+            leaderboard.add(
+                    LeaderboardEntry.builder()
+                            .username(user != null ?
+                                    user.getUsername() : "Unknown")
+                            .wordsFound(doc.getInteger("wordsFound"))
+                            .timeTakenSeconds(
+                                    doc.getLong("timeTakenSeconds"))
+                            .build()
+            );
+        }
+
+        return leaderboard;
+    }
 }
